@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+
+{% block title %}用户管理 - 学生管理系统{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2>
+            <i class="fas fa-users me-2"></i>用户管理
+        </h2>
+        <p class="text-muted">管理系统中的所有用户账户</p>
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list me-2"></i>用户列表
+                    </h5>
+                    <a href="{{ url_for('auth.register') }}" class="btn btn-success">
+                        <i class="fas fa-user-plus me-2"></i>添加新用户
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if users %}
+                <!-- 筛选器 -->
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <select class="form-select" id="roleFilter" onchange="filterUsers()">
+                            <option value="">所有角色</option>
+                            <option value="admin">管理员</option>
+                            <option value="teacher">教师</option>
+                            <option value="student">学生</option>
+                        </select>
+                    </div>
+                    <div class="col-md-8">
+                        <input type="text" class="form-control" id="searchInput" placeholder="搜索用户名..." onkeyup="searchUsers()">
+                    </div>
+                </div>
+
+                <!-- 用户表格 -->
+                <div class="table-responsive">
+                    <table class="table table-striped" id="usersTable">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>用户名</th>
+                                <th>角色</th>
+                                <th>课程/成绩</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in users %}
+                            <tr data-role="{{ user.role.value }}" data-username="{{ user.username.lower() }}">
+                                <td>{{ user.id }}</td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-user-circle fa-2x text-primary me-2"></i>
+                                        <div>
+                                            <div class="fw-bold">{{ user.username }}</div>
+                                            {% if user.id == current_user.id %}
+                                                <small class="text-muted">（当前用户）</small>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-{{ 'danger' if user.role.value == 'admin' else 'success' if user.role.value == 'teacher' else 'primary' }}">
+                                        {{ '管理员' if user.role.value == 'admin' else '教师' if user.role.value == 'teacher' else '学生' }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if user.is_student() %}
+                                        <small class="text-muted">
+                                            {{ user.grades|length }} 门课程
+                                        </small>
+                                    {% else %}
+                                        <small class="text-muted">-</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <!-- 查看详情按钮（如果有权限） -->
+                                        {% if current_user.can_view_user(user) %}
+                                        <a href="#" class="btn btn-info btn-sm view-user-btn" 
+                                           data-user-id="{{ user.id }}">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        {% endif %}
+
+                                        <!-- 删除按钮（只有管理员可以删除其他用户） -->
+                                        {% if current_user.can_delete_user(user) %}
+                                        <button class="btn btn-danger btn-sm delete-user-btn" 
+                                                data-user-id="{{ user.id }}" 
+                                                data-username="{{ user.username }}">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">暂无用户数据</p>
+                    <a href="{{ url_for('auth.register') }}" class="btn btn-primary">
+                        <i class="fas fa-user-plus me-2"></i>添加第一个用户
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 用户详情模态框 -->
+<div class="modal fade" id="userModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-user me-2"></i>用户详情
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="userModalBody">
+                <!-- 用户详情内容将通过JavaScript加载 -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 为查看用户按钮添加事件监听器
+    document.querySelectorAll('.view-user-btn').forEach(function(button) {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            const userId = this.dataset.userId;
+            viewUser(userId);
+        });
+    });
+
+    // 为删除用户按钮添加事件监听器
+    document.querySelectorAll('.delete-user-btn').forEach(function(button) {
+        button.addEventListener('click', function() {
+            const userId = this.dataset.userId;
+            const username = this.dataset.username;
+            deleteUser(userId, username);
+        });
+    });
+});
+
+function filterUsers() {
+    const filter = document.getElementById('roleFilter').value;
+    const rows = document.querySelectorAll('#usersTable tbody tr');
+
+    rows.forEach(row => {
+        const role = row.getAttribute('data-role');
+        if (filter === '' || role === filter) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+
+function searchUsers() {
+    const search = document.getElementById('searchInput').value.toLowerCase();
+    const rows = document.querySelectorAll('#usersTable tbody tr');
+
+    rows.forEach(row => {
+        const username = row.getAttribute('data-username');
+        if (username.includes(search)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+
+function viewUser(userId) {
+    // 这里可以实现查看用户详情的功能
+    alert('查看用户详情功能待实现，用户ID: ' + userId);
+}
+
+function deleteUser(userId, username) {
+    if (confirm(`确定要删除用户 "${username}" 吗？此操作不可撤销！`)) {
+        fetch(`/api/users/${userId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert('删除失败：' + data.error);
+            } else {
+                alert('用户删除成功！');
+                location.reload();
+            }
+        })
+        .catch(error => {
+            alert('删除失败：' + error);
+        });
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+
+{% block title %}管理员仪表板 - 学生管理系统{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2>
+            <i class="fas fa-tachometer-alt me-2"></i>管理员仪表板
+            <span class="badge bg-danger">管理员</span>
+        </h2>
+        <p class="text-muted">欢迎，{{ current_user.username }}！以下是系统概览信息。</p>
+    </div>
+</div>
+
+<!-- 统计卡片 -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ total_users }}</h4>
+                        <p class="card-text">总用户数</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-users fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer">
+                <a href="{{ url_for('main.list_users') }}" class="text-white text-decoration-none">
+                    查看详情 <i class="fas fa-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3 mb-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ total_students }}</h4>
+                        <p class="card-text">学生总数</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-user-graduate fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer">
+                <a href="{{ url_for('main.list_users') }}" class="text-white text-decoration-none">
+                    查看学生 <i class="fas fa-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3 mb-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ total_teachers }}</h4>
+                        <p class="card-text">教师总数</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-chalkboard-teacher fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer">
+                <a href="{{ url_for('main.list_users') }}" class="text-white text-decoration-none">
+                    查看教师 <i class="fas fa-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3 mb-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ total_courses }}</h4>
+                        <p class="card-text">课程总数</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-book fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer">
+                <a href="{{ url_for('main.list_courses') }}" class="text-white text-decoration-none">
+                    查看课程 <i class="fas fa-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 最近注册用户 -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-user-plus me-2"></i>最近注册用户
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if recent_users %}
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>用户名</th>
+                                <th>角色</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in recent_users %}
+                            <tr>
+                                <td>{{ user.id }}</td>
+                                <td>{{ user.username }}</td>
+                                <td>
+                                    <span class="badge bg-{{ 'danger' if user.role.value == 'admin' else 'success' if user.role.value == 'teacher' else 'primary' }}">
+                                        {{ '管理员' if user.role.value == 'admin' else '教师' if user.role.value == 'teacher' else '学生' }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if user.id != current_user.id %}
+                                    <button class="btn btn-danger btn-sm delete-user-btn" 
+                                            data-user-id="{{ user.id }}" 
+                                            data-username="{{ user.username }}">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                    {% else %}
+                                    <span class="text-muted">当前用户</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted">暂无注册用户</p>
+                {% endif %}
+            </div>
+            <div class="card-footer">
+                <a href="{{ url_for('main.list_users') }}" class="btn btn-primary">
+                    <i class="fas fa-users me-2"></i>查看所有用户
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 快速操作 -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-tools me-2"></i>快速操作
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 mb-2">
+                        <a href="{{ url_for('main.list_users') }}" class="btn btn-outline-primary w-100">
+                            <i class="fas fa-users me-2"></i>用户管理
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <a href="{{ url_for('main.list_courses') }}" class="btn btn-outline-success w-100">
+                            <i class="fas fa-book me-2"></i>课程管理
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <a href="{{ url_for('main.list_grades') }}" class="btn btn-outline-info w-100">
+                            <i class="fas fa-chart-bar me-2"></i>成绩管理
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <a href="{{ url_for('auth.register') }}" class="btn btn-outline-warning w-100">
+                            <i class="fas fa-user-plus me-2"></i>添加用户
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 为删除按钮添加事件监听器
+    document.querySelectorAll('.delete-user-btn').forEach(function(button) {
+        button.addEventListener('click', function() {
+            const userId = this.dataset.userId;
+            const username = this.dataset.username;
+            deleteUser(userId, username);
+        });
+    });
+});
+
+function deleteUser(userId, username) {
+    if (confirm(`确定要删除用户 "${username}" 吗？此操作不可撤销！`)) {
+        fetch(`/api/users/${userId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert('删除失败：' + data.error);
+            } else {
+                alert('用户删除成功！');
+                location.reload();
+            }
+        })
+        .catch(error => {
+            alert('删除失败：' + error);
+        });
+    }
+}
+</script>
+{% endblock %}

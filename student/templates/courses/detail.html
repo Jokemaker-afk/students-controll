@@ -1,0 +1,354 @@
+{% extends "base.html" %}
+
+{% block title %}{{ course.name }} - 课程详情{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('main.dashboard') }}">仪表板</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('main.list_courses') }}">课程列表</a></li>
+                <li class="breadcrumb-item active">{{ course.name }}</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<!-- 课程基本信息 -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="fas fa-book me-2"></i>{{ course.name }}
+                    </h4>
+                    <span class="badge bg-primary fs-6">{{ course.credits }}学分</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <h6>课程描述</h6>
+                        <p class="text-muted">
+                            {{ course.description or '暂无课程描述' }}
+                        </p>
+
+                        {% if current_user.is_student() %}
+                            {% set student_grade = current_user.get_grade_in_course(course.id) %}
+                            {% if student_grade %}
+                            <div class="alert alert-success">
+                                <h6 class="alert-heading">
+                                    <i class="fas fa-check-circle me-2"></i>您已选修此课程
+                                </h6>
+                                <p class="mb-0">
+                                    当前成绩：
+                                    {% if student_grade %}
+                                        <strong class="fs-5">{{ student_grade }}</strong>
+                                        <span class="badge bg-success ms-2">{{ grades|selectattr('student_id', 'equalto', current_user.id)|first.get_letter_grade() }}</span>
+                                    {% else %}
+                                        <span class="text-muted">待评分</span>
+                                    {% endif %}
+                                </p>
+                            </div>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6 class="card-title">课程统计</h6>
+                                <div class="row text-center">
+                                    <div class="col-6 mb-2">
+                                        <div class="border-end">
+                                            <h5 class="text-primary mb-0">{{ students|length }}</h5>
+                                            <small class="text-muted">选课学生</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-6 mb-2">
+                                        <h5 class="text-success mb-0">
+                                            {% if course.get_average_score() > 0 %}
+                                                {{ "%.1f"|format(course.get_average_score()) }}
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </h5>
+                                        <small class="text-muted">平均分</small>
+                                    </div>
+                                </div>
+                                <hr class="my-2">
+                                <div class="text-center">
+                                    <small class="text-muted">
+                                        创建时间：{{ course.created_at.strftime('%Y年%m月%d日') if course.created_at else '未知' }}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 学生成绩列表 -->
+{% if not current_user.is_student() or (current_user.is_student() and current_user.get_grade_in_course(course.id)) %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-users me-2"></i>
+                        {% if current_user.is_student() %}
+                            班级成绩
+                        {% else %}
+                            学生成绩管理
+                        {% endif %}
+                    </h5>
+                    {% if current_user.is_teacher() or current_user.is_admin() %}
+                    <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#addGradeModal">
+                        <i class="fas fa-plus me-2"></i>录入成绩
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-body">
+                {% if grades %}
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>学生姓名</th>
+                                <th>成绩</th>
+                                <th>等级</th>
+                                <th>状态</th>
+                                <th>录入时间</th>
+                                <th>更新时间</th>
+                                {% if current_user.is_teacher() or current_user.is_admin() %}
+                                <th>操作</th>
+                                {% endif %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for grade in grades %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-user-circle text-primary me-2"></i>
+                                        {{ grade.student.username }}
+                                        {% if current_user.is_student() and grade.student.id == current_user.id %}
+                                            <span class="badge bg-info ms-2">我</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if grade.score %}
+                                        <span class="badge bg-{{ 'success' if grade.score >= 90 else 'primary' if grade.score >= 80 else 'warning' if grade.score >= 70 else 'info' if grade.score >= 60 else 'danger' }} fs-6">
+                                            {{ grade.score }}
+                                        </span>
+                                    {% else %}
+                                        <span class="text-muted">未评分</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-outline-dark">{{ grade.get_letter_grade() }}</span>
+                                </td>
+                                <td>
+                                    {% if grade.score %}
+                                        {% if grade.score >= 60 %}
+                                            <span class="badge bg-success">通过</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">不及格</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="badge bg-warning">待评分</span>
+                                    {% endif %}
+                                </td>
+                                <td class="small text-muted">
+                                    {{ grade.created_at.strftime('%Y-%m-%d %H:%M') if grade.created_at else '-' }}
+                                </td>
+                                <td class="small text-muted">
+                                    {{ grade.updated_at.strftime('%Y-%m-%d %H:%M') if grade.updated_at else '-' }}
+                                </td>
+                                {% if current_user.is_teacher() or current_user.is_admin() %}
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <button class="btn btn-warning btn-sm edit-grade-btn" 
+                                                data-grade-id="{{ grade.id }}" 
+                                                data-current-score="{{ grade.score or 0 }}">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-danger btn-sm delete-grade-btn" 
+                                                data-grade-id="{{ grade.id }}" 
+                                                data-student-name="{{ grade.student.username }}">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                                {% endif %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 成绩统计 -->
+                {% if grades|selectattr('score')|list %}
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6 class="card-title">成绩分析</h6>
+                                <div class="row text-center">
+                                    {% set scored_grades = grades|selectattr('score')|list %}
+                                    <div class="col-md-2">
+                                        <strong class="text-success">{{ scored_grades|selectattr('score', 'ge', 90)|list|length }}</strong>
+                                        <small class="d-block text-muted">A等级</small>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <strong class="text-primary">{{ scored_grades|selectattr('score', 'ge', 80)|selectattr('score', 'lt', 90)|list|length }}</strong>
+                                        <small class="d-block text-muted">B等级</small>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <strong class="text-warning">{{ scored_grades|selectattr('score', 'ge', 70)|selectattr('score', 'lt', 80)|list|length }}</strong>
+                                        <small class="d-block text-muted">C等级</small>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <strong class="text-info">{{ scored_grades|selectattr('score', 'ge', 60)|selectattr('score', 'lt', 70)|list|length }}</strong>
+                                        <small class="d-block text-muted">D等级</small>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <strong class="text-danger">{{ scored_grades|selectattr('score', 'lt', 60)|list|length }}</strong>
+                                        <small class="d-block text-muted">F等级</small>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <strong class="text-secondary">{{ grades|rejectattr('score')|list|length }}</strong>
+                                        <small class="d-block text-muted">未评分</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-user-graduate fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">暂无学生选修此课程</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if current_user.is_teacher() or current_user.is_admin() %}
+<!-- 录入成绩模态框 -->
+<div class="modal fade" id="addGradeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-plus me-2"></i>录入成绩
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="studentSelect" class="form-label">选择学生</label>
+                        <select class="form-select" id="studentSelect" name="student_id" required>
+                            <option value="">请选择学生</option>
+                            <!-- 这里需要后端提供未选修此课程的学生列表 -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="scoreInput" class="form-label">成绩分数</label>
+                        <input type="number" class="form-control" id="scoreInput" name="score" min="0" max="100" step="0.1">
+                        <div class="form-text">可留空，稍后录入成绩</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-save me-2"></i>保存
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 编辑成绩模态框 -->
+<div class="modal fade" id="editGradeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-edit me-2"></i>编辑成绩
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" id="editGradeForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="editScoreInput" class="form-label">成绩分数</label>
+                        <input type="number" class="form-control" id="editScoreInput" name="score" min="0" max="100" step="0.1" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-save me-2"></i>更新成绩
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if current_user.is_teacher() or current_user.is_admin() %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 为编辑成绩按钮添加事件监听器
+    document.querySelectorAll('.edit-grade-btn').forEach(function(button) {
+        button.addEventListener('click', function() {
+            const gradeId = this.dataset.gradeId;
+            const currentScore = this.dataset.currentScore;
+            editGrade(gradeId, currentScore);
+        });
+    });
+
+    // 为删除成绩按钮添加事件监听器
+    document.querySelectorAll('.delete-grade-btn').forEach(function(button) {
+        button.addEventListener('click', function() {
+            const gradeId = this.dataset.gradeId;
+            const studentName = this.dataset.studentName;
+            deleteGrade(gradeId, studentName);
+        });
+    });
+});
+
+function editGrade(gradeId, currentScore) {
+    document.getElementById('editScoreInput').value = currentScore;
+    document.getElementById('editGradeForm').action = `/grades/${gradeId}/edit`;
+
+    const modal = new bootstrap.Modal(document.getElementById('editGradeModal'));
+    modal.show();
+}
+
+function deleteGrade(gradeId, studentName) {
+    if (confirm(`确定要删除学生 "${studentName}" 的成绩记录吗？`)) {
+        // 删除成绩功能待实现
+        alert('删除成绩功能待实现，成绩ID: ' + gradeId);
+    }
+}
+</script>
+{% endif %}
+{% endblock %}

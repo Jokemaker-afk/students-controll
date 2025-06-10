@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}个人资料 - 学生管理系统{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-user-edit me-2"></i>个人资料
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 text-center">
+                        <div class="avatar-container mb-3">
+                            <i class="fas fa-user-circle fa-5x text-primary"></i>
+                        </div>
+                        <h5>{{ user.username }}</h5>
+                        <span class="badge bg-{{ 'danger' if user.role.value == 'admin' else 'success' if user.role.value == 'teacher' else 'primary' }} fs-6">
+                            {{ '管理员' if user.role.value == 'admin' else '教师' if user.role.value == 'teacher' else '学生' }}
+                        </span>
+                    </div>
+                    <div class="col-md-9">
+                        <table class="table table-borderless">
+                            <tr>
+                                <th width="150">用户ID：</th>
+                                <td>{{ user.id }}</td>
+                            </tr>
+                            <tr>
+                                <th>用户名：</th>
+                                <td>{{ user.username }}</td>
+                            </tr>
+                            <tr>
+                                <th>用户角色：</th>
+                                <td>
+                                    <span class="badge bg-{{ 'danger' if user.role.value == 'admin' else 'success' if user.role.value == 'teacher' else 'primary' }}">
+                                        {{ '管理员' if user.role.value == 'admin' else '教师' if user.role.value == 'teacher' else '学生' }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% if user.is_student() %}
+                            <tr>
+                                <th>选修课程：</th>
+                                <td>
+                                    {% set courses = user.get_courses() %}
+                                    {% if courses %}
+                                        {% for course in courses %}
+                                            <span class="badge bg-info me-1">{{ course.name }}</span>
+                                        {% endfor %}
+                                    {% else %}
+                                        <span class="text-muted">暂未选修任何课程</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>成绩记录：</th>
+                                <td>{{ user.grades|length }} 门课程</td>
+                            </tr>
+                            {% endif %}
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer">
+                <a href="{{ url_for('auth.change_password') }}" class="btn btn-warning">
+                    <i class="fas fa-key me-2"></i>修改密码
+                </a>
+                <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>返回仪表板
+                </a>
+            </div>
+        </div>
+
+        {% if user.is_student() and user.grades %}
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-bar me-2"></i>我的成绩
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>课程名称</th>
+                                <th>学分</th>
+                                <th>成绩</th>
+                                <th>等级</th>
+                                <th>更新时间</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for grade in user.grades %}
+                            <tr>
+                                <td>
+                                    <a href="{{ url_for('main.course_detail', course_id=grade.course.id) }}" class="text-decoration-none">
+                                        {{ grade.course.name }}
+                                    </a>
+                                </td>
+                                <td>{{ grade.course.credits }}</td>
+                                <td>
+                                    {% if grade.score %}
+                                        <span class="badge bg-{{ 'success' if grade.score >= 90 else 'primary' if grade.score >= 80 else 'warning' if grade.score >= 70 else 'info' if grade.score >= 60 else 'danger' }}">
+                                            {{ grade.score }}
+                                        </span>
+                                    {% else %}
+                                        <span class="text-muted">未评分</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ grade.get_letter_grade() }}</td>
+                                <td>{{ grade.updated_at.strftime('%Y-%m-%d %H:%M') if grade.updated_at else '-' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}注册 - 学生管理系统{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+        <div class="card">
+            <div class="card-header text-center">
+                <h4 class="mb-0">
+                    <i class="fas fa-user-plus me-2"></i>用户注册
+                </h4>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">用户名</label>
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="fas fa-user"></i>
+                            </span>
+                            <input type="text" class="form-control" id="username" name="username" required>
+                        </div>
+                        <div class="form-text">用户名将作为您的登录凭证</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="password" class="form-label">密码</label>
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="fas fa-lock"></i>
+                            </span>
+                            <input type="password" class="form-control" id="password" name="password" required>
+                        </div>
+                        <div class="form-text">密码长度至少6位字符</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="role" class="form-label">用户角色</label>
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="fas fa-user-tag"></i>
+                            </span>
+                            <select class="form-select" id="role" name="role" required>
+                                <option value="student" selected>学生</option>
+                                <option value="teacher">教师</option>
+                                <option value="admin">管理员</option>
+                            </select>
+                        </div>
+                        <div class="form-text">请选择您的身份角色</div>
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-user-plus me-2"></i>注册账户
+                        </button>
+                    </div>
+                </form>
+            </div>
+            <div class="card-footer text-center">
+                <p class="mb-0">已有账户？
+                    <a href="{{ url_for('auth.login') }}" class="text-decoration-none">
+                        立即登录
+                    </a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,343 @@
+{% extends "base.html" %}
+
+{% block title %}课程列表 - 学生管理系统{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2>
+            <i class="fas fa-book me-2"></i>课程列表
+        </h2>
+        <p class="text-muted">
+            {% if current_user.is_student() %}
+                浏览和查看您的课程信息
+            {% else %}
+                管理系统中的所有课程
+            {% endif %}
+        </p>
+    </div>
+</div>
+
+<!-- 课程统计 -->
+{% if courses %}
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body text-center">
+                <h4>{{ courses|length }}</h4>
+                <p class="mb-0">总课程数</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card bg-success text-white">
+            <div class="card-body text-center">
+                <h4>{{ courses|sum(attribute='credits') }}</h4>
+                <p class="mb-0">总学分</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card bg-info text-white">
+            <div class="card-body text-center">
+                <h4>
+                    {% set total_students = 0 %}
+                    {% for course in courses %}
+                        {% set total_students = total_students + course.get_student_count() %}
+                    {% endfor %}
+                    {{ total_students }}
+                </h4>
+                <p class="mb-0">选课人次</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body text-center">
+                <h4>
+                    {% set avg_scores = [] %}
+                    {% for course in courses %}
+                        {% if course.get_average_score() > 0 %}
+                            {% set _ = avg_scores.append(course.get_average_score()) %}
+                        {% endif %}
+                    {% endfor %}
+                    {% if avg_scores %}
+                        {{ "%.1f"|format(avg_scores|sum / avg_scores|length) }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </h4>
+                <p class="mb-0">平均成绩</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- 课程列表 -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list me-2"></i>所有课程
+                    </h5>
+                    {% if current_user.is_admin() %}
+                    <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addCourseModal">
+                        <i class="fas fa-plus me-2"></i>添加新课程
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-body">
+                {% if courses %}
+                <!-- 搜索和筛选 -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <input type="text" class="form-control" id="searchInput" placeholder="搜索课程名称..." onkeyup="searchCourses()">
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="creditsFilter" onchange="filterCourses()">
+                            <option value="">所有学分</option>
+                            <option value="1">1学分</option>
+                            <option value="2">2学分</option>
+                            <option value="3">3学分</option>
+                            <option value="4">4学分</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="statusFilter" onchange="filterCourses()">
+                            <option value="">所有状态</option>
+                            <option value="enrolled">已选修</option>
+                            <option value="available">可选修</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 课程卡片 -->
+                <div class="row" id="coursesContainer">
+                    {% for course in courses %}
+                    <div class="col-md-6 col-lg-4 mb-4 course-card"
+                         data-name="{{ course.name.lower() }}"
+                         data-credits="{{ course.credits }}"
+                         data-status="{% if current_user.is_student() and current_user.get_grade_in_course(course.id) %}enrolled{% else %}available{% endif %}">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <h6 class="card-title mb-0">{{ course.name }}</h6>
+                                    <span class="badge bg-primary">{{ course.credits }}学分</span>
+                                </div>
+
+                                <p class="card-text text-muted small">
+                                    {{ course.description or '暂无课程描述' }}
+                                </p>
+
+                                <div class="row text-center mb-3">
+                                    <div class="col-4">
+                                        <small class="text-muted d-block">选课人数</small>
+                                        <strong>{{ course.get_student_count() }}</strong>
+                                    </div>
+                                    <div class="col-4">
+                                        <small class="text-muted d-block">平均分</small>
+                                        <strong>{{ "%.1f"|format(course.get_average_score()) if course.get_average_score() > 0 else '-' }}</strong>
+                                    </div>
+                                    <div class="col-4">
+                                        <small class="text-muted d-block">创建时间</small>
+                                        <strong>{{ course.created_at.strftime('%Y-%m') if course.created_at else '-' }}</strong>
+                                    </div>
+                                </div>
+
+                                {% if current_user.is_student() %}
+                                    {% set student_grade = current_user.get_grade_in_course(course.id) %}
+                                    {% if student_grade %}
+                                    <div class="alert alert-success py-2 mb-2">
+                                        <small>
+                                            <i class="fas fa-check-circle me-1"></i>
+                                            已选修 - 成绩：
+                                            {% if student_grade %}
+                                                <strong>{{ student_grade }}</strong>
+                                            {% else %}
+                                                <span class="text-muted">未评分</span>
+                                            {% endif %}
+                                        </small>
+                                    </div>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+
+                            <div class="card-footer">
+                                <div class="d-grid gap-2">
+                                    <a href="{{ url_for('main.course_detail', course_id=course.id) }}"
+                                       class="btn btn-primary btn-sm">
+                                        <i class="fas fa-eye me-2"></i>查看详情
+                                    </a>
+
+                                    {% if current_user.is_admin() %}
+                                    <div class="btn-group" role="group">
+                                        <button class="btn btn-warning btn-sm edit-course-btn" 
+                                                data-course-id="{{ course.id }}">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-danger btn-sm delete-course-btn" 
+                                                data-course-id="{{ course.id }}" 
+                                                data-course-name="{{ course.name }}">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-book-open fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">暂无课程数据</h5>
+                    <p class="text-muted">系统中还没有任何课程</p>
+                    {% if current_user.is_admin() %}
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addCourseModal">
+                        <i class="fas fa-plus me-2"></i>添加第一门课程
+                    </button>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if current_user.is_admin() %}
+<!-- 添加课程模态框 -->
+<div class="modal fade" id="addCourseModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-plus me-2"></i>添加新课程
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{{ url_for('main.add_course') }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="courseName" class="form-label">课程名称</label>
+                        <input type="text" class="form-control" id="courseName" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="courseDescription" class="form-label">课程描述</label>
+                        <textarea class="form-control" id="courseDescription" name="description" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="courseCredits" class="form-label">学分</label>
+                        <select class="form-select" id="courseCredits" name="credits" required>
+                            <option value="1">1学分</option>
+                            <option value="2">2学分</option>
+                            <option value="3" selected>3学分</option>
+                            <option value="4">4学分</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-save me-2"></i>保存课程
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 为编辑课程按钮添加事件监听器
+    document.querySelectorAll('.edit-course-btn').forEach(function(button) {
+        button.addEventListener('click', function() {
+            const courseId = this.dataset.courseId;
+            editCourse(courseId);
+        });
+    });
+
+    // 为删除课程按钮添加事件监听器
+    document.querySelectorAll('.delete-course-btn').forEach(function(button) {
+        button.addEventListener('click', function() {
+            const courseId = this.dataset.courseId;
+            const courseName = this.dataset.courseName;
+            deleteCourse(courseId, courseName);
+        });
+    });
+});
+
+function searchCourses() {
+    const search = document.getElementById('searchInput').value.toLowerCase();
+    const cards = document.querySelectorAll('.course-card');
+
+    cards.forEach(card => {
+        const name = card.getAttribute('data-name');
+        if (name.includes(search)) {
+            card.style.display = '';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+}
+
+function filterCourses() {
+    const creditsFilter = document.getElementById('creditsFilter').value;
+    const statusFilter = document.getElementById('statusFilter').value;
+    const cards = document.querySelectorAll('.course-card');
+
+    cards.forEach(card => {
+        const credits = card.getAttribute('data-credits');
+        const status = card.getAttribute('data-status');
+
+        let showCard = true;
+
+        if (creditsFilter && credits !== creditsFilter) {
+            showCard = false;
+        }
+
+        if (statusFilter && status !== statusFilter) {
+            showCard = false;
+        }
+
+        card.style.display = showCard ? '' : 'none';
+    });
+}
+
+function editCourse(courseId) {
+    // 编辑课程功能待实现
+    alert('编辑课程功能待实现，课程ID: ' + courseId);
+}
+
+function deleteCourse(courseId, courseName) {
+    if (confirm(`确定要删除课程 "${courseName}" 吗？此操作将同时删除相关的成绩记录！`)) {
+        fetch(`/courses/${courseId}/delete`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                alert(data.message);
+                location.reload(); // 刷新页面
+            } else if (data.error) {
+                alert('错误: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('删除课程时发生错误');
+        });
+    }
+}
+</script>
+{% endblock %}

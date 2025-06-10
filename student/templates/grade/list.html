@@ -1,0 +1,595 @@
+{% extends "base.html" %}
+
+{% block title %}成绩管理 - 学生管理系统{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2>
+            <i class="fas fa-chart-bar me-2"></i>
+            {% if current_user.is_student() %}
+                我的成绩
+            {% else %}
+                成绩管理
+            {% endif %}
+        </h2>
+        <p class="text-muted">
+            {% if current_user.is_student() %}
+                查看您的所有课程成绩和学习进度
+            {% else %}
+                管理系统中的所有学生成绩
+            {% endif %}
+        </p>
+    </div>
+</div>
+
+{% if grades %}
+<!-- 成绩统计 -->
+<div class="row mb-4">
+    {% if current_user.is_student() %}
+    <div class="col-md-3 mb-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body text-center">
+                <h4>{{ grades|length }}</h4>
+                <p class="mb-0">选修课程</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card bg-success text-white">
+            <div class="card-body text-center">
+                <h4>
+                    {% set scored_grades = grades|selectattr('score')|list %}
+                    {% if scored_grades %}
+                        {{ "%.1f"|format((scored_grades|sum(attribute='score'))/scored_grades|length) }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </h4>
+                <p class="mb-0">平均成绩</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card bg-info text-white">
+            <div class="card-body text-center">
+                <h4>{{ grades|selectattr('score', 'ge', 60)|list|length }}</h4>
+                <p class="mb-0">通过课程</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body text-center">
+                <h4>
+                    {% set total_credits = 0 %}
+                    {% for grade in grades %}
+                        {% if grade.score and grade.score >= 60 %}
+                            {% set total_credits = total_credits + grade.course.credits %}
+                        {% endif %}
+                    {% endfor %}
+                    {{ total_credits }}
+                </h4>
+                <p class="mb-0">获得学分</p>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="col-md-4 mb-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body text-center">
+                <h4>{{ grades|length }}</h4>
+                <p class="mb-0">成绩记录</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card bg-success text-white">
+            <div class="card-body text-center">
+                <h4>{{ grades|selectattr('score')|list|length }}</h4>
+                <p class="mb-0">已评分</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body text-center">
+                <h4>{{ grades|rejectattr('score')|list|length }}</h4>
+                <p class="mb-0">待评分</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 成绩列表 -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list me-2"></i>成绩列表
+                    </h5>
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="exportGrades()">
+                            <i class="fas fa-download me-2"></i>导出
+                        </button>
+                        {% if not current_user.is_student() %}
+                        <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#importGradesModal">
+                            <i class="fas fa-upload me-2"></i>批量导入
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- 筛选器 -->
+                <div class="row mb-3">
+                    {% if not current_user.is_student() %}
+                    <div class="col-md-3">
+                        <input type="text" class="form-control" id="studentSearch" placeholder="搜索学生..." onkeyup="filterGrades()">
+                    </div>
+                    {% endif %}
+                    <div class="col-md-3">
+                        <select class="form-select" id="courseFilter" onchange="filterGrades()">
+                            <option value="">所有课程</option>
+                            {% set unique_courses = [] %}
+                            {% for grade in grades %}
+                                {% if grade.course not in unique_courses %}
+                                    {% set _ = unique_courses.append(grade.course) %}
+                                    <option value="{{ grade.course.id }}">{{ grade.course.name }}</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="gradeFilter" onchange="filterGrades()">
+                            <option value="">所有等级</option>
+                            <option value="A">A等级 (90-100)</option>
+                            <option value="B">B等级 (80-89)</option>
+                            <option value="C">C等级 (70-79)</option>
+                            <option value="D">D等级 (60-69)</option>
+                            <option value="F">F等级 (<60)</option>
+                            <option value="ungraded">未评分</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="statusFilter" onchange="filterGrades()">
+                            <option value="">所有状态</option>
+                            <option value="pass">通过</option>
+                            <option value="fail">不及格</option>
+                            <option value="pending">待评分</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 成绩表格 -->
+                <div class="table-responsive">
+                    <table class="table table-striped" id="gradesTable">
+                        <thead>
+                            <tr>
+                                {% if not current_user.is_student() %}
+                                <th>学生</th>
+                                {% endif %}
+                                <th>课程</th>
+                                <th>学分</th>
+                                <th>成绩</th>
+                                <th>等级</th>
+                                <th>状态</th>
+                                <th>录入时间</th>
+                                <th>更新时间</th>
+                                {% if current_user.is_teacher() or current_user.is_admin() %}
+                                <th>操作</th>
+                                {% endif %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for grade in grades %}
+                            <tr class="grade-row"
+                                data-student="{{ grade.student.username.lower() if not current_user.is_student() else '' }}"
+                                data-course="{{ grade.course.id }}"
+                                data-grade="{{ grade.get_letter_grade() }}"
+                                data-status="{% if grade.score %}{% if grade.score >= 60 %}pass{% else %}fail{% endif %}{% else %}pending{% endif %}">
+                                {% if not current_user.is_student() %}
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-user-circle text-primary me-2"></i>
+                                        {{ grade.student.username }}
+                                    </div>
+                                </td>
+                                {% endif %}
+                                <td>
+                                    <a href="{{ url_for('main.course_detail', course_id=grade.course.id) }}" class="text-decoration-none">
+                                        {{ grade.course.name }}
+                                    </a>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ grade.course.credits }}</span>
+                                </td>
+                                <td>
+                                    {% if grade.score %}
+                                        <span class="badge bg-{{ 'success' if grade.score >= 90 else 'primary' if grade.score >= 80 else 'warning' if grade.score >= 70 else 'info' if grade.score >= 60 else 'danger' }} fs-6">
+                                            {{ grade.score }}
+                                        </span>
+                                    {% else %}
+                                        <span class="text-muted">未评分</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-outline-dark">{{ grade.get_letter_grade() }}</span>
+                                </td>
+                                <td>
+                                    {% if grade.score %}
+                                        {% if grade.score >= 60 %}
+                                            <span class="badge bg-success">通过</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">不及格</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="badge bg-warning">待评分</span>
+                                    {% endif %}
+                                </td>
+                                <td class="small text-muted">
+                                    {{ grade.created_at.strftime('%Y-%m-%d') if grade.created_at else '-' }}
+                                </td>
+                                <td class="small text-muted">
+                                    {{ grade.updated_at.strftime('%Y-%m-%d') if grade.updated_at else '-' }}
+                                </td>
+                                {% if current_user.is_teacher() or current_user.is_admin() %}
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <button class="btn btn-warning btn-sm edit-grade-btn" 
+                                                data-grade-id="{{ grade.id }}" 
+                                                data-current-score="{{ grade.score or 0 }}" 
+                                                data-student-name="{{ grade.student.username }}" 
+                                                data-course-name="{{ grade.course.name }}">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-danger btn-sm delete-grade-btn" 
+                                                data-grade-id="{{ grade.id }}" 
+                                                data-student-name="{{ grade.student.username }}" 
+                                                data-course-name="{{ grade.course.name }}">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                                {% endif %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if current_user.is_student() and grades|selectattr('score')|list %}
+<!-- 学习进度分析 -->
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-pie me-2"></i>成绩分布
+                </h5>
+            </div>
+            <div class="card-body">
+                <canvas id="gradeDistributionChart" width="400" height="300" 
+                        data-scores="{% for grade in grades %}{% if grade.score %}{{ grade.score }}{% if not loop.last %},{% endif %}{% endif %}{% endfor %}"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-line me-2"></i>成绩趋势
+                </h5>
+            </div>
+            <div class="card-body">
+                <canvas id="gradeTrendChart" width="400" height="300" 
+                        data-grades="{% for grade in grades %}{% if grade.score %}{{ grade.score }}:{{ grade.course.name|truncate(10, true, '') }}:{{ grade.updated_at.strftime('%Y-%m-%d') if grade.updated_at else 'unknown' }}{% if not loop.last %};{% endif %}{% endif %}{% endfor %}"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% else %}
+<!-- 无成绩数据 -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">暂无成绩数据</h5>
+                <p class="text-muted">
+                    {% if current_user.is_student() %}
+                        您还没有选修任何课程
+                    {% else %}
+                        系统中还没有任何成绩记录
+                    {% endif %}
+                </p>
+                <a href="{{ url_for('main.list_courses') }}" class="btn btn-primary">
+                    <i class="fas fa-book me-2"></i>
+                    {% if current_user.is_student() %}
+                        浏览课程
+                    {% else %}
+                        课程管理
+                    {% endif %}
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if current_user.is_teacher() or current_user.is_admin() %}
+<!-- 编辑成绩模态框 -->
+<div class="modal fade" id="editGradeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-edit me-2"></i>编辑成绩
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" id="editGradeForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">学生</label>
+                        <p class="form-control-plaintext" id="editStudentName"></p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">课程</label>
+                        <p class="form-control-plaintext" id="editCourseName"></p>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editScoreInput" class="form-label">成绩分数</label>
+                        <input type="number" class="form-control" id="editScoreInput" name="score" min="0" max="100" step="0.1" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-save me-2"></i>更新成绩
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 批量导入模态框 -->
+<div class="modal fade" id="importGradesModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-upload me-2"></i>批量导入成绩
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="importFile" class="form-label">选择文件</label>
+                    <input type="file" class="form-control" id="importFile" accept=".csv,.xlsx">
+                    <div class="form-text">支持 CSV 和 Excel 格式文件</div>
+                </div>
+                <div class="alert alert-info">
+                    <h6>文件格式要求：</h6>
+                    <ul class="mb-0">
+                        <li>第一列：学生用户名</li>
+                        <li>第二列：课程名称</li>
+                        <li>第三列：成绩分数</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-success" onclick="importGrades()">
+                    <i class="fas fa-upload me-2"></i>开始导入
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 为编辑成绩按钮添加事件监听器
+    document.querySelectorAll('.edit-grade-btn').forEach(function(button) {
+        button.addEventListener('click', function() {
+            const gradeId = this.dataset.gradeId;
+            const currentScore = this.dataset.currentScore;
+            const studentName = this.dataset.studentName;
+            const courseName = this.dataset.courseName;
+            editGrade(gradeId, currentScore, studentName, courseName);
+        });
+    });
+
+    // 为删除成绩按钮添加事件监听器
+    document.querySelectorAll('.delete-grade-btn').forEach(function(button) {
+        button.addEventListener('click', function() {
+            const gradeId = this.dataset.gradeId;
+            const studentName = this.dataset.studentName;
+            const courseName = this.dataset.courseName;
+            deleteGrade(gradeId, studentName, courseName);
+        });
+    });
+});
+
+function filterGrades() {
+    const studentSearch = document.getElementById('studentSearch')?.value.toLowerCase() || '';
+    const courseFilter = document.getElementById('courseFilter').value;
+    const gradeFilter = document.getElementById('gradeFilter').value;
+    const statusFilter = document.getElementById('statusFilter').value;
+    const rows = document.querySelectorAll('.grade-row');
+
+    rows.forEach(row => {
+        const student = row.getAttribute('data-student');
+        const course = row.getAttribute('data-course');
+        const grade = row.getAttribute('data-grade');
+        const status = row.getAttribute('data-status');
+
+        let showRow = true;
+
+        if (studentSearch && !student.includes(studentSearch)) {
+            showRow = false;
+        }
+
+        if (courseFilter && course !== courseFilter) {
+            showRow = false;
+        }
+
+        if (gradeFilter) {
+            if (gradeFilter === 'ungraded' && grade !== '未评分') {
+                showRow = false;
+            } else if (gradeFilter !== 'ungraded' && grade !== gradeFilter) {
+                showRow = false;
+            }
+        }
+
+        if (statusFilter && status !== statusFilter) {
+            showRow = false;
+        }
+
+        row.style.display = showRow ? '' : 'none';
+    });
+}
+
+function exportGrades() {
+    // 导出成绩功能待实现
+    alert('导出功能待实现');
+}
+
+function editGrade(gradeId, currentScore, studentName, courseName) {
+    document.getElementById('editStudentName').textContent = studentName;
+    document.getElementById('editCourseName').textContent = courseName;
+    document.getElementById('editScoreInput').value = currentScore;
+    document.getElementById('editGradeForm').action = `/grades/${gradeId}/edit`;
+
+    const modal = new bootstrap.Modal(document.getElementById('editGradeModal'));
+    modal.show();
+}
+
+function deleteGrade(gradeId, studentName, courseName) {
+    if (confirm(`确定要删除 "${studentName}" 在课程 "${courseName}" 的成绩记录吗？`)) {
+        // 删除成绩功能待实现
+        alert('删除成绩功能待实现，成绩ID: ' + gradeId);
+    }
+}
+
+function importGrades() {
+    const fileInput = document.getElementById('importFile');
+    if (!fileInput.files[0]) {
+        alert('请选择要导入的文件');
+        return;
+    }
+
+    // 批量导入功能待实现
+    alert('批量导入功能待实现');
+}
+</script>
+
+{% if current_user.is_student() and grades|selectattr('score')|list %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 成绩分布图
+    const gradeDistCanvas = document.getElementById('gradeDistributionChart');
+    if (gradeDistCanvas) {
+        const gradeDistCtx = gradeDistCanvas.getContext('2d');
+        const scoresString = gradeDistCanvas.dataset.scores;
+        const scores = scoresString ? scoresString.split(',').map(Number).filter(n => !isNaN(n)) : [];
+
+        const gradeCounts = {
+            'A': scores.filter(s => s >= 90).length,
+            'B': scores.filter(s => s >= 80 && s < 90).length,
+            'C': scores.filter(s => s >= 70 && s < 80).length,
+            'D': scores.filter(s => s >= 60 && s < 70).length,
+            'F': scores.filter(s => s < 60).length
+        };
+
+        new Chart(gradeDistCtx, {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(gradeCounts),
+                datasets: [{
+                    data: Object.values(gradeCounts),
+                    backgroundColor: ['#28a745', '#007bff', '#ffc107', '#17a2b8', '#dc3545'],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'bottom' }
+                }
+            }
+        });
+    }
+
+    // 成绩趋势图
+    const gradeTrendCanvas = document.getElementById('gradeTrendChart');
+    if (gradeTrendCanvas) {
+        const gradeTrendCtx = gradeTrendCanvas.getContext('2d');
+        const gradesString = gradeTrendCanvas.dataset.grades;
+        
+        if (gradesString) {
+            const gradeEntries = gradesString.split(';');
+            const trendLabels = [];
+            const trendScores = [];
+            
+            gradeEntries.forEach(entry => {
+                const parts = entry.split(':');
+                if (parts.length >= 3) {
+                    trendScores.push(parseFloat(parts[0]));
+                    trendLabels.push(parts[1]);
+                }
+            });
+
+            new Chart(gradeTrendCtx, {
+                type: 'line',
+                data: {
+                    labels: trendLabels,
+                    datasets: [{
+                        label: '成绩',
+                        data: trendScores,
+                        borderColor: '#007bff',
+                        backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            title: {
+                                display: true,
+                                text: '成绩分数'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+    }
+});
+</script>
+{% endif %}
+{% endblock %}

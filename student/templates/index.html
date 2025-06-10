@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}首页 - 学生管理系统{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="jumbotron bg-primary text-white text-center p-5 rounded mb-4">
+            <h1 class="display-4">
+                <i class="fas fa-graduation-cap me-3"></i>欢迎使用学生管理系统
+            </h1>
+            <p class="lead">一个功能完整的学生、教师和管理员协作平台</p>
+            {% if not current_user.is_authenticated %}
+                <hr class="my-4">
+                <p>请登录以访问您的个人仪表板，或注册新账户开始使用。</p>
+                <a class="btn btn-light btn-lg me-3" href="{{ url_for('auth.login') }}" role="button">
+                    <i class="fas fa-sign-in-alt me-2"></i>立即登录
+                </a>
+                <a class="btn btn-outline-light btn-lg" href="{{ url_for('auth.register') }}" role="button">
+                    <i class="fas fa-user-plus me-2"></i>注册账户
+                </a>
+            {% else %}
+                <hr class="my-4">
+                <p>欢迎回来，{{ current_user.username }}！</p>
+                <a class="btn btn-light btn-lg" href="{{ url_for('main.dashboard') }}" role="button">
+                    <i class="fas fa-tachometer-alt me-2"></i>进入仪表板
+                </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% if not current_user.is_authenticated %}
+<div class="row">
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-user-graduate fa-3x text-primary mb-3"></i>
+                <h5 class="card-title">学生功能</h5>
+                <p class="card-text">查看个人成绩、选修课程、管理个人信息等功能。</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-chalkboard-teacher fa-3x text-success mb-3"></i>
+                <h5 class="card-title">教师功能</h5>
+                <p class="card-text">管理课程、录入学生成绩、查看学生信息等功能。</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-user-shield fa-3x text-warning mb-3"></i>
+                <h5 class="card-title">管理员功能</h5>
+                <p class="card-text">用户管理、系统设置、数据统计等高级管理功能。</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>系统特性
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <ul class="list-unstyled">
+                            <li class="mb-2"><i class="fas fa-check text-success me-2"></i>基于角色的权限管理</li>
+                            <li class="mb-2"><i class="fas fa-check text-success me-2"></i>课程和成绩管理</li>
+                            <li class="mb-2"><i class="fas fa-check text-success me-2"></i>用户信息管理</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <ul class="list-unstyled">
+                            <li class="mb-2"><i class="fas fa-check text-success me-2"></i>响应式设计，支持移动端</li>
+                            <li class="mb-2"><i class="fas fa-check text-success me-2"></i>安全的用户认证系统</li>
+                            <li class="mb-2"><i class="fas fa-check text-success me-2"></i>直观的数据统计界面</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -149,8 +149,9 @@
                                 </div>
 
                                 {% if current_user.is_student() %}
+                                    {% set is_enrolled = current_user.is_enrolled_in_course(course.id) %}
                                     {% set student_grade = current_user.get_grade_in_course(course.id) %}
-                                    {% if student_grade %}
+                                    {% if is_enrolled %}
                                     <div class="alert alert-success py-2 mb-2">
                                         <small>
                                             <i class="fas fa-check-circle me-1"></i>
@@ -162,16 +163,56 @@
                                             {% endif %}
                                         </small>
                                     </div>
+                                    {% else %}
+                                    <div class="alert alert-info py-2 mb-2">
+                                        <small>
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            <span class="text-muted">未选修此课程</span>
+                                        </small>
+                                    </div>
                                     {% endif %}
                                 {% endif %}
                             </div>
 
                             <div class="card-footer">
                                 <div class="d-grid gap-2">
-                                    <a href="{{ url_for('main.course_detail', course_id=course.id) }}"
-                                       class="btn btn-primary btn-sm">
-                                        <i class="fas fa-eye me-2"></i>查看详情
-                                    </a>
+                                    {% if current_user.is_student() %}
+                                        {% set is_enrolled = current_user.is_enrolled_in_course(course.id) %}
+                                        {% set student_grade = current_user.get_grade_in_course(course.id) %}
+                                        
+                                        {% if is_enrolled %}
+                                            <a href="{{ url_for('main.course_detail', course_id=course.id) }}"
+                                               class="btn btn-primary btn-sm">
+                                                <i class="fas fa-eye me-2"></i>查看详情
+                                            </a>
+                                            {% if student_grade is none %}
+                                            <button class="btn btn-warning btn-sm drop-course-btn" 
+                                                    data-course-id="{{ course.id }}" 
+                                                    data-course-name="{{ course.name }}">
+                                                <i class="fas fa-times me-2"></i>退选课程
+                                            </button>
+                                            {% else %}
+                                            <div class="btn btn-success btn-sm disabled">
+                                                <i class="fas fa-check me-2"></i>已完成评分
+                                            </div>
+                                            {% endif %}
+                                        {% else %}
+                                            <button class="btn btn-success btn-sm enroll-course-btn" 
+                                                    data-course-id="{{ course.id }}" 
+                                                    data-course-name="{{ course.name }}">
+                                                <i class="fas fa-plus me-2"></i>选修课程
+                                            </button>
+                                            <a href="{{ url_for('main.course_detail', course_id=course.id) }}"
+                                               class="btn btn-outline-primary btn-sm">
+                                                <i class="fas fa-eye me-2"></i>查看详情
+                                            </a>
+                                        {% endif %}
+                                    {% else %}
+                                        <a href="{{ url_for('main.course_detail', course_id=course.id) }}"
+                                           class="btn btn-primary btn-sm">
+                                            <i class="fas fa-eye me-2"></i>查看详情
+                                        </a>
+                                    {% endif %}
 
                                     {% if current_user.is_admin() %}
                                     <div class="btn-group" role="group">
@@ -272,6 +313,24 @@ document.addEventListener('DOMContentLoaded', function() {
             deleteCourse(courseId, courseName);
         });
     });
+
+    // 为选课按钮添加事件监听器
+    document.querySelectorAll('.enroll-course-btn').forEach(function(button) {
+        button.addEventListener('click', function() {
+            const courseId = this.dataset.courseId;
+            const courseName = this.dataset.courseName;
+            enrollCourse(courseId, courseName);
+        });
+    });
+
+    // 为退课按钮添加事件监听器
+    document.querySelectorAll('.drop-course-btn').forEach(function(button) {
+        button.addEventListener('click', function() {
+            const courseId = this.dataset.courseId;
+            const courseName = this.dataset.courseName;
+            dropCourse(courseId, courseName);
+        });
+    });
 });
 
 function searchCourses() {
@@ -336,6 +395,54 @@ function deleteCourse(courseId, courseName) {
         .catch(error => {
             console.error('Error:', error);
             alert('删除课程时发生错误');
+        });
+    }
+}
+
+function enrollCourse(courseId, courseName) {
+    if (confirm(`确定要选修课程 "${courseName}" 吗？`)) {
+        fetch(`/courses/${courseId}/enroll`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                alert(data.message);
+                location.reload(); // 刷新页面显示最新状态
+            } else if (data.error) {
+                alert('错误: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('选课时发生错误');
+        });
+    }
+}
+
+function dropCourse(courseId, courseName) {
+    if (confirm(`确定要退选课程 "${courseName}" 吗？`)) {
+        fetch(`/courses/${courseId}/drop`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                alert(data.message);
+                location.reload(); // 刷新页面显示最新状态
+            } else if (data.error) {
+                alert('错误: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('退课时发生错误');
         });
     }
 }

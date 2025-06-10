@@ -126,6 +126,19 @@ class User(UserMixin, db.Model):
         grade = Grade.query.filter_by(student_id=self.id, course_id=course_id).first()
         return grade.score if grade else None
 
+    def is_enrolled_in_course(self, course_id):
+        """检查学生是否已选修某门课程"""
+        if not self.is_student():
+            return False
+        grade = Grade.query.filter_by(student_id=self.id, course_id=course_id).first()
+        return grade is not None
+
+    def get_course_grade_record(self, course_id):
+        """获取学生在某门课程的完整成绩记录"""
+        if not self.is_student():
+            return None
+        return Grade.query.filter_by(student_id=self.id, course_id=course_id).first()
+
     def check_password(self, password):
         """验证密码"""
         from werkzeug.security import check_password_hash

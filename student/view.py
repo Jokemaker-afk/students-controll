@@ -216,3 +216,63 @@ def delete_course(course_id):
         return jsonify({'error': f'删除课程失败: {str(e)}'}), 500
 
 
+# 学生选课功能
+@bp.route('/courses/<int:course_id>/enroll', methods=['POST'])
+@login_required
+@require_role(UserRole.STUDENT)
+def enroll_course(course_id):
+    """学生选课"""
+    course = Course.query.get_or_404(course_id)
+    
+    # 检查是否已经选修
+    if current_user.is_enrolled_in_course(course_id):
+        return jsonify({'error': f'您已经选修了课程 "{course.name}"'}), 400
+    
+    try:
+        # 创建新的成绩记录（分数为空，表示已选课但未评分）
+        new_grade = Grade(
+            student_id=current_user.id,
+            course_id=course_id,
+            score=None  # 选课时分数为空
+        )
+        db.session.add(new_grade)
+        db.session.commit()
+        
+        return jsonify({
+            'message': f'成功选修课程 "{course.name}"！',
+            'enrolled': True
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'选课失败: {str(e)}'}), 500
+
+
+@bp.route('/courses/<int:course_id>/drop', methods=['DELETE'])
+@login_required
+@require_role(UserRole.STUDENT)
+def drop_course(course_id):
+    """学生退课"""
+    course = Course.query.get_or_404(course_id)
+    
+    # 检查是否已选修
+    grade_record = current_user.get_course_grade_record(course_id)
+    if not grade_record:
+        return jsonify({'error': f'您没有选修课程 "{course.name}"'}), 400
+    
+    # 如果已经有成绩，不允许退课
+    if grade_record.score is not None:
+        return jsonify({'error': f'课程 "{course.name}" 已有成绩，无法退课'}), 400
+    
+    try:
+        db.session.delete(grade_record)
+        db.session.commit()
+        
+        return jsonify({
+            'message': f'成功退选课程 "{course.name}"',
+            'enrolled': False
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'退课失败: {str(e)}'}), 500
+
+
